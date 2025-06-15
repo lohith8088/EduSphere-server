@@ -1,5 +1,5 @@
 import express from "express";
-import { myprofile, register } from "../controllers/user.js";
+import { forgotPassword, myprofile, register, resetPassword } from "../controllers/user.js";
 import { verifyUser } from "../controllers/user.js";
 import { loginUser } from "../controllers/user.js";
 import { isAuth } from "../middlewares/isAuth.js";
@@ -14,5 +14,8 @@ router.post("/user/verify",verifyUser);
 router.post("/user/login",loginUser);
 
 router.get("/user/me",isAuth,myprofile);
+
+router.post("/user/forgot",forgotPassword)
+router.post("/user/reset",resetPassword)
 
 export default router;

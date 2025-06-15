@@ -22,6 +22,7 @@ import mongoose from "mongoose";
       ref:"Courses",
     }
   ],
+  resetPasswordExpire: Date,
 
  },
 {timestamps:true});
