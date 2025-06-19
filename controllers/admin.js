@@ -5,64 +5,84 @@ import {rm, stat } from "fs";
 import { promisify } from "util";
 import fs from "fs"
 import { User } from "../models/user.js";
+import cloudinary from "../middlewares/cloudinary.js";
 
-export const CreateCourse = Trycatch(async (req,res )=>{
-  const {title,description,category,createdBY,duration,price} = req.body;
-  console.log(req.body);
+export const CreateCourse = Trycatch(async (req, res) => {
+  const { title, description, category, createdBY, duration, price } = req.body;
 
+  const image = req.file;
+  if (!image) return res.status(400).json({ message: "Image is required" });
 
-
-  const image=req.file;
-  if (!image) {
-    return res.status(400).json({ message: "Image file is required" });
-  }
-const priceNum = parseFloat(req.body.price);
-const durationNum = parseFloat(req.body.duration);
-
-  if (isNaN(priceNum)) {
-    return res.status(400).json({ message: "Price must be a valid number" });
-  }
-  if (isNaN(durationNum)) {
-    return res.status(400).json({ message: "Duration must be a valid number" });
+  const priceNum = parseFloat(price);
+  const durationNum = parseFloat(duration);
+  if (isNaN(priceNum) || isNaN(durationNum)) {
+    return res.status(400).json({ message: "Invalid price or duration" });
   }
 
-  await Courses.create({
+  // Upload to Cloudinary
+  const uploadImageToCloudinary = () =>
+    new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "elearn/courses", resource_type: "image" },
+        (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        }
+      );
+      stream.end(image.buffer); 
+    });
+
+  const uploadedImage = await uploadImageToCloudinary();
+
+  const course = await Courses.create({
     title,
     description,
     category,
     createdBY,
     duration: durationNum,
     price: priceNum,
-    image: image.path,
+    image: uploadedImage.secure_url,
   });
-  res.status(201).json({
-    message: "Course created successfully",
-  });
-})
 
-export const addLecture = Trycatch(async (req,res) => {
+  res.status(201).json({ message: "Course created", course });
+});
+
+
+export const addLecture = Trycatch(async (req, res) => {
+  const { title, description } = req.body;
   const course = await Courses.findById(req.params.id);
+  if (!course) return res.status(404).json({ message: "Course not found" });
 
-  if (!course) {
-    return res.status(404).json({ message: "Course not found" });
-  }
+  const file = req.file;
+  if (!file) return res.status(400).json({ message: "Lecture video is required" });
 
-  const { title, description} = req.body;
+  const uploadVideoToCloudinary = () =>
+    new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "elearn/lectures", resource_type: "video" },
+        (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        }
+      );
+      stream.end(file.buffer);
+    });
 
-  const file=req.file;
- 
-  const newLecture = await Lecture.create({
+  const uploadedVideo = await uploadVideoToCloudinary();
+
+  const lecture = await Lecture.create({
     title,
     description,
-    video: file?.path,
+    video: uploadedVideo.secure_url,
     course: course._id,
   });
-  res.status(201).json({
-    message: "Lecture added successfully",
-    lecture: newLecture,
-  });
 
-})
+  res.status(201).json({ message: "Lecture added", lecture });
+});
+
+
+
+
 
 export const deleteLecture = Trycatch(async (req,res) => {
   const lecture = await Lecture.findById(req.params.id);
